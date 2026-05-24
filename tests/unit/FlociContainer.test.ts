@@ -305,3 +305,43 @@ describe('StartedFlociContainer.getSecureEndpoint()', () => {
     );
   });
 });
+
+describe('StartedFlociContainer.stop() storage cleanup', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+
+  const mockContainer = {
+    getHost: () => 'localhost',
+    getMappedPort: (port: number) => port === 4566 ? 49152 : port,
+    stop: async () => {},
+  } as any;
+
+  it('deletes hostPersistentPath on stop', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'floci-test-'));
+    fs.writeFileSync(path.join(tmpDir, 'test.txt'), 'data');
+
+    const started = new StartedFlociContainer(mockContainer, {
+      region: 'us-east-1',
+      availabilityZone: 'us-east-1a',
+      accountId: '000000000000',
+      tlsEnabled: false,
+      hostPersistentPath: tmpDir,
+    });
+
+    expect(fs.existsSync(tmpDir)).toBe(true);
+    await started.stop();
+    expect(fs.existsSync(tmpDir)).toBe(false);
+  });
+
+  it('does not throw when hostPersistentPath is undefined', async () => {
+    const started = new StartedFlociContainer(mockContainer, {
+      region: 'us-east-1',
+      availabilityZone: 'us-east-1a',
+      accountId: '000000000000',
+      tlsEnabled: false,
+    });
+
+    await expect(started.stop()).resolves.toBeUndefined();
+  });
+});
