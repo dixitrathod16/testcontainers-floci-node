@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import fs from 'fs';
 import { GenericContainer, Network, StartedTestContainer, Wait } from 'testcontainers';
 import type { StartedNetwork, ExecResult } from 'testcontainers';
 import type { ServiceConfig } from './config/services';
@@ -693,6 +694,7 @@ export class FlociContainer {
       dedicatedNetworkName: this.dedicatedNetworkName,
       network,
       tlsEnabled: this.tlsConfig.enabled,
+      hostPersistentPath: this.storageConfig?.hostPersistentPath,
     });
   }
 
@@ -728,7 +730,7 @@ export class FlociContainer {
     const portConfigs: ServiceConfig[] = [
       this.lambdaConfig, this.rdsConfig, this.elastiCacheConfig,
       this.openSearchConfig, this.ecrConfig, this.eksConfig,
-      this.neptuneConfig,
+      this.neptuneConfig, this.ec2Config, this.elbV2Config,
     ];
     for (const config of portConfigs) {
       config.applyExposedPortsTo(this);
@@ -744,6 +746,7 @@ export class StartedFlociContainer {
   private readonly _dedicatedNetworkName?: string;
   private readonly network?: StartedNetwork;
   private readonly tlsEnabled: boolean;
+  private readonly hostPersistentPath?: string;
 
   constructor(
     container: StartedTestContainer,
@@ -754,6 +757,7 @@ export class StartedFlociContainer {
       dedicatedNetworkName?: string;
       network?: StartedNetwork;
       tlsEnabled: boolean;
+      hostPersistentPath?: string;
     },
   ) {
     this.container = container;
@@ -763,6 +767,7 @@ export class StartedFlociContainer {
     this._dedicatedNetworkName = opts.dedicatedNetworkName;
     this.network = opts.network;
     this.tlsEnabled = opts.tlsEnabled;
+    this.hostPersistentPath = opts.hostPersistentPath;
   }
 
   getEndpoint(): string {
@@ -795,6 +800,14 @@ export class StartedFlociContainer {
     await this.container.stop();
     if (this.network) {
       await this.network.stop();
+    }
+    // Cleanup persistent storage if a host path was configured
+    if (this.hostPersistentPath) {
+      try {
+        fs.rmSync(this.hostPersistentPath, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors silently (matches Java behavior)
+      }
     }
   }
 }

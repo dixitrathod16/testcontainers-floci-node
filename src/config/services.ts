@@ -179,7 +179,11 @@ export class Ec2Config implements ServiceConfig {
     c.withEnv('FLOCI_SERVICES_EC2_IMDS_PORT', String(this.imdsPort));
   }
 
-  applyExposedPortsTo(_c: FlociContainerTarget): void {}
+  applyExposedPortsTo(c: FlociContainerTarget): void {
+    if (this.enabled) {
+      c.withExposedPort(this.imdsPort);
+    }
+  }
 }
 
 export class EcrConfig implements ServiceConfig {
@@ -267,14 +271,23 @@ export class ElbV2Config implements ServiceConfig {
   constructor(
     readonly enabled: boolean = true,
     readonly mock: boolean = false,
+    readonly listenerPorts: number[] = [],
   ) {}
 
   applyEnvVarsTo(c: FlociContainerTarget): void {
     c.withEnv('FLOCI_SERVICES_ELBV2_ENABLED', String(this.enabled));
-    c.withEnv('FLOCI_SERVICES_ELBV2_MOCK', String(this.mock));
+    if (this.enabled) {
+      c.withEnv('FLOCI_SERVICES_ELBV2_MOCK', String(this.mock));
+    }
   }
 
-  applyExposedPortsTo(_c: FlociContainerTarget): void {}
+  applyExposedPortsTo(c: FlociContainerTarget): void {
+    if (this.enabled) {
+      for (const port of this.listenerPorts) {
+        c.withExposedPort(port);
+      }
+    }
+  }
 }
 
 export class EventBridgeConfig implements ServiceConfig {
